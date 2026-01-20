@@ -2,8 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
 import { config } from './config/env.js';
 import audioRoutes from './routes/audio.js';
+import { setupWebSocket } from './routes/websocket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +28,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.listen(config.port, () => {
+// Create HTTP server
+const server = createServer(app);
+
+// Create WebSocket server
+const wss = new WebSocketServer({ server, path: '/ws/transcribe' });
+
+// Setup WebSocket handlers
+setupWebSocket(wss);
+
+server.listen(config.port, () => {
   console.log(`Server running on port ${config.port}`);
+  console.log(`WebSocket server available at ws://localhost:${config.port}/ws/transcribe`);
 });
 

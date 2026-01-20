@@ -5,8 +5,8 @@
 
 export const defaultModels = {
   transcription: 'whisper-1', // Only option for transcription
-  summarization: 'gpt-5-nano', // Default model
-  musicPromptGeneration: 'gpt-5-nano', // Default model
+  summarization: 'gpt-3.5-turbo', // Default model
+  musicPromptGeneration: 'gpt-3.5-turbo', // Default model
   musicGeneration: 'V5', // Default Suno model
 };
 
@@ -15,16 +15,16 @@ export const availableModels = {
     { value: 'whisper-1', label: 'Whisper-1 (Default)' },
   ],
   summarization: [
-    { value: 'gpt-5-nano', label: 'GPT-5 Nano (Default)' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Default)' },
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
     { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-5-nano', label: 'GPT-5 Nano' },
   ],
   musicPromptGeneration: [
-    { value: 'gpt-5-nano', label: 'GPT-5 Nano (Default)' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Default)' },
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
     { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-5-nano', label: 'GPT-5 Nano' },
   ],
   musicGeneration: [
     { value: 'V5', label: 'V5 - Latest Model (Default)' },
