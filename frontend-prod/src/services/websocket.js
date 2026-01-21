@@ -9,14 +9,15 @@ export class WebSocketClient {
     this.connectionId = null;
   }
 
-  connect(useRealtime = true) {
+  connect(useRealtime = false) {
     return new Promise((resolve, reject) => {
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.hostname;
         const port = '3001';
-        // Always use realtime API for transcription
-        const wsUrl = `${protocol}//${host}:${port}/ws/transcribe?realtime=true`;
+        // Use Whisper service by default (or Realtime API if explicitly requested)
+        const serviceParam = useRealtime ? 'realtime=true' : 'whisper=true';
+        const wsUrl = `${protocol}//${host}:${port}/ws/transcribe?${serviceParam}`;
         
         this.ws = new WebSocket(wsUrl);
 
@@ -106,8 +107,11 @@ export class WebSocketClient {
   sendAudioPCM(audioBuffer) {
     // Send PCM16 audio data (for Realtime API)
     if (!audioBuffer || audioBuffer.byteLength === 0) {
+      console.log('[WebSocket Client] ⚠️ Empty audio buffer, skipping');
       return;
     }
+    
+    console.log(`[WebSocket Client] 📤 Sending audio chunk: ${audioBuffer.byteLength} bytes (PCM16)`);
     
     // Convert ArrayBuffer to base64
     const bytes = new Uint8Array(audioBuffer);
@@ -116,11 +120,15 @@ export class WebSocketClient {
       binary += String.fromCharCode(bytes[i]);
     }
     const base64 = btoa(binary);
+    console.log(`[WebSocket Client] Converted to base64: ${base64.length} characters`);
     
-    this.send({
+    const message = {
       type: 'audio',
       data: base64,
-    });
+    };
+    console.log(`[WebSocket Client] Sending message type: ${message.type}, data length: ${message.data.length}`);
+    this.send(message);
+    console.log(`[WebSocket Client] ✅ Message sent`);
   }
 
   sendAudio(audioBlob, model = 'whisper-1') {
