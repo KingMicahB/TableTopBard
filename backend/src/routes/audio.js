@@ -7,6 +7,7 @@ import { transcribeAudio } from '../services/transcription.js';
 import { summarizeText } from '../services/summarization.js';
 import { generateMusicPrompt } from '../services/promptGeneration.js';
 import { generateMusic, pollMusicStatus } from '../services/suno.js';
+import { saveTaskId } from '../services/songHistory.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,7 +149,7 @@ router.post('/generate-prompt', express.json(), async (req, res) => {
 
 // Music generation endpoint
 router.post('/generate-music', express.json(), async (req, res) => {
-  const { prompt, customPrompt, model, instrumental, customMode, style, title } = req.body;
+  const { prompt, customPrompt, model, instrumental, customMode, style, title, sceneName } = req.body;
 
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -165,6 +166,17 @@ router.post('/generate-music', express.json(), async (req, res) => {
     };
 
     const result = await generateMusic(prompt, options);
+    
+    // Save taskId to history if we have one
+    if (result.taskId) {
+      try {
+        saveTaskId(result.taskId, title || null, sceneName || null);
+      } catch (historyError) {
+        // Log but don't fail the request if history save fails
+        console.error('Failed to save taskId to history:', historyError);
+      }
+    }
+    
     res.json({
       success: true,
       ...result,

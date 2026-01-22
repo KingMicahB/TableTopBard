@@ -45,7 +45,7 @@ export const generateMusicPrompt = async (summary, userPrompt = null, model = 'g
         },
       ],
       temperature: 0.8,
-      max_completion_tokens: 300,
+      max_completion_tokens: 1500, // Increased to allow full music prompts
     });
 
     const prompt = completion.choices[0]?.message?.content?.trim();

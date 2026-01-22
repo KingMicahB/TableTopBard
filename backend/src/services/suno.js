@@ -1,6 +1,37 @@
 import { config } from '../config/env.js';
+import https from 'https';
 
 const SUNO_API_BASE_URL = 'https://api.sunoapi.org';
+
+/**
+ * Test connectivity to Suno API
+ * @returns {Promise<boolean>} - True if API is reachable
+ */
+const testApiConnectivity = async () => {
+  try {
+    console.log(`[API TEST] Testing connectivity to ${SUNO_API_BASE_URL}...`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch(`${SUNO_API_BASE_URL}`, {
+      method: 'GET',
+      signal: controller.signal,
+    }).catch(() => null); // Ignore errors for connectivity test
+    
+    clearTimeout(timeoutId);
+    
+    if (response) {
+      console.log(`[API TEST] ✓ API is reachable (status: ${response.status})`);
+      return true;
+    } else {
+      console.warn(`[API TEST] ⚠️ Could not reach API endpoint`);
+      return false;
+    }
+  } catch (error) {
+    console.warn(`[API TEST] ⚠️ Connectivity test failed: ${error.message}`);
+    return false;
+  }
+};
 
 /**
  * Poll for music generation status
@@ -511,18 +542,108 @@ export const generateMusic = async (prompt, options = {}) => {
       prompt: `${requestBody.prompt.substring(0, 100)}... (${requestBody.prompt.length} chars)`,
     }, null, 2));
     console.log(`[GENERATE MUSIC] Sending POST request to: ${SUNO_API_BASE_URL}/api/v1/generate`);
+    console.log(`[GENERATE MUSIC] Request URL: ${SUNO_API_BASE_URL}/api/v1/generate`);
+    
+    // Test connectivity first
+    const isReachable = await testApiConnectivity();
+    if (!isReachable) {
+      console.warn(`[GENERATE MUSIC] ⚠️ API connectivity test failed, but proceeding with request...`);
+    }
     
     // Use trimmed API key for the actual request
     const trimmedApiKey = config.sunoApiKey.trim();
     
-    const response = await fetch(`${SUNO_API_BASE_URL}/api/v1/generate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${trimmedApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let response;
+    try {
+      // Create an AbortController for timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error(`[GENERATE MUSIC] ⏱️ Request timeout after 30 seconds`);
+        controller.abort();
+      }, 30000); // 30 second timeout
+      
+      console.log(`[GENERATE MUSIC] Initiating fetch request...`);
+      console.log(`[GENERATE MUSIC] Request body size: ${JSON.stringify(requestBody).length} bytes`);
+      console.log(`[GENERATE MUSIC] Using Node.js version: ${process.version}`);
+      console.log(`[GENERATE MUSIC] Fetch available: ${typeof fetch !== 'undefined' ? 'Yes' : 'No'}`);
+      
+      // Try fetch first
+      try {
+        response = await fetch(`${SUNO_API_BASE_URL}/api/v1/generate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${trimmedApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        console.log(`[GENERATE MUSIC] ✓ Fetch completed successfully`);
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        // If fetch fails, try with https module as fallback
+        console.warn(`[GENERATE MUSIC] ⚠️ Fetch failed, trying https module fallback...`);
+        throw fetchErr; // Re-throw to be caught by outer catch
+      }
+    } catch (fetchError) {
+      console.error(`[GENERATE MUSIC] ❌ Network error during fetch`);
+      console.error(`[GENERATE MUSIC] Error name: ${fetchError.name}`);
+      console.error(`[GENERATE MUSIC] Error message: ${fetchError.message}`);
+      console.error(`[GENERATE MUSIC] Error code: ${fetchError.code || 'N/A'}`);
+      console.error(`[GENERATE MUSIC] Error cause:`, fetchError.cause || 'N/A');
+      console.error(`[GENERATE MUSIC] Error stack:`, fetchError.stack);
+      console.error(`[GENERATE MUSIC] Full error object:`, JSON.stringify(fetchError, Object.getOwnPropertyNames(fetchError)));
+      console.error(`[GENERATE MUSIC] Request details:`);
+      console.error(`[GENERATE MUSIC]   - URL: ${SUNO_API_BASE_URL}/api/v1/generate`);
+      console.error(`[GENERATE MUSIC]   - Method: POST`);
+      console.error(`[GENERATE MUSIC]   - API Key length: ${trimmedApiKey.length} chars`);
+      console.error(`[GENERATE MUSIC]   - API Key prefix: ${trimmedApiKey.substring(0, 10)}...`);
+      console.error(`[GENERATE MUSIC]   - Request body size: ${JSON.stringify(requestBody).length} bytes`);
+      
+      // Provide more helpful error messages based on error type
+      let errorMessage = 'Network error connecting to Suno API. ';
+      
+      if (fetchError.name === 'AbortError' || fetchError.message.includes('timeout') || fetchError.message.includes('aborted')) {
+        errorMessage += 'Request timed out after 30 seconds. Please check your internet connection and try again.';
+      } else if (fetchError.message.includes('ENOTFOUND') || fetchError.message.includes('getaddrinfo') || fetchError.code === 'ENOTFOUND') {
+        errorMessage += 'Could not resolve the API hostname. Please check your internet connection and DNS settings.';
+      } else if (fetchError.message.includes('ECONNREFUSED') || fetchError.code === 'ECONNREFUSED') {
+        errorMessage += 'Connection was refused. The API may be temporarily unavailable or your firewall is blocking the request.';
+      } else if (fetchError.message.includes('ECONNRESET') || fetchError.code === 'ECONNRESET') {
+        errorMessage += 'Connection was reset by the server. Please try again.';
+      } else if (fetchError.message.includes('ETIMEDOUT') || fetchError.code === 'ETIMEDOUT') {
+        errorMessage += 'Connection timed out. Please check your internet connection.';
+      } else if (fetchError.message.includes('certificate') || fetchError.message.includes('SSL') || fetchError.message.includes('TLS')) {
+        errorMessage += 'SSL/TLS certificate error. Please check your system certificates or network configuration.';
+      } else if (fetchError.message.includes('fetch failed') || fetchError.message === 'fetch failed') {
+        errorMessage += `The request failed at the network level. This could be due to:
+- Network connectivity issues (check your internet connection)
+- Firewall or proxy blocking the request
+- DNS resolution problems
+- The API endpoint being temporarily unavailable
+- SSL/TLS certificate issues
+
+Troubleshooting steps:
+1. Verify your internet connection is working
+2. Check if you can access https://api.sunoapi.org in a browser
+3. Check firewall/antivirus settings
+4. Try disabling VPN if you're using one
+5. Check if your network requires a proxy configuration
+
+Error details: ${fetchError.message}
+Error code: ${fetchError.code || 'N/A'}`;
+      } else {
+        errorMessage += `Error details: ${fetchError.message || 'Unknown network error'}`;
+      }
+      
+      console.error(`[GENERATE MUSIC] ========================================`);
+      console.error(`[GENERATE MUSIC] Throwing user-friendly error:`);
+      console.error(`[GENERATE MUSIC] ${errorMessage}`);
+      console.error(`[GENERATE MUSIC] ========================================`);
+      throw new Error(errorMessage);
+    }
     
     console.log(`[GENERATE MUSIC] Response status: ${response.status} ${response.statusText}`);
     console.log(`[GENERATE MUSIC] Response headers:`, Object.fromEntries(response.headers.entries()));

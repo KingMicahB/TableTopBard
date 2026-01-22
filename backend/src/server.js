@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { config } from './config/env.js';
 import audioRoutes from './routes/audio.js';
+import historyRoutes from './routes/history.js';
 import { setupWebSocket } from './routes/websocket.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +23,7 @@ app.use('/api/audio/files', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/audio', audioRoutes);
+app.use('/api/history', historyRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

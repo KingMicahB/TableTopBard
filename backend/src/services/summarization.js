@@ -45,7 +45,7 @@ export const summarizeText = async (text, userPrompt = null, model = 'gpt-5-nano
         },
       ],
       temperature: 0.7,
-      max_completion_tokens: 200,
+      max_completion_tokens: 2000, // Increased to allow full summaries
     });
 
     const summary = completion.choices[0]?.message?.content?.trim();
